@@ -1,9 +1,12 @@
-require 'cfpropertylist'
-require 'json'
 require './util'
 require './bookmark'
 require './folder'
 require './bookmarkcollection'
+
+require './chrome'
+
+include Chrome
+include Safari
 
 safariplistfile = '~/Library/Safari/Bookmarks.plist'
 chromejsonfile = '~/Library/Application Support/Google/Chrome/Default/Bookmarks'
@@ -34,9 +37,6 @@ bc = BookmarkCollection.new
 bc.add_chrome json
 bc.add_safari data
 
-File.open(chromejsonfile, 'w') do |file|  
-  file.puts(bc.render_json)
-end
 bc.render_plist.save(safariplistfile, CFPropertyList::List::FORMAT_BINARY)
 
 #Dir.glob(safaricachepath + "*").each do |name|
