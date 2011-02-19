@@ -21,7 +21,7 @@ class BookmarkCollection
     end
   end
 
-  def all_children(&block)
+  def all(&block)
     @bookmarks_bar.all_children &block
     @other.all_children &block  
   end
