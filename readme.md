@@ -35,6 +35,8 @@ Its pretty simple to use:
 
 
 *What needs work*
--Firefox, Opera support
--Cross platform support
--More methods on BookmarkCollection to support adding, modifying, and such
+-----------------
+
+- Firefox, Opera support
+- Cross platform support
+- More methods on BookmarkCollection to support adding, modifying, and such
