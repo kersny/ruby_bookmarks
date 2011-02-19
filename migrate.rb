@@ -4,40 +4,14 @@ require './folder'
 require './bookmarkcollection'
 
 require './chrome'
+require './safari'
 
 include Chrome
 include Safari
 
-safariplistfile = '~/Library/Safari/Bookmarks.plist'
-chromejsonfile = '~/Library/Application Support/Google/Chrome/Default/Bookmarks'
-safaricachepath = '~/Library/Caches/Metadata/Safari/Bookmarks/'
-
-safariplistfile.gsub!('~', ENV["HOME"])
-chromejsonfile.gsub!('~', ENV["HOME"])
-safaricachepath.gsub!('~', ENV["HOME"])
-
-
-# You could do this and then parse the xml by hand to remove the dependency
-# but gems are so much easier :)
-#xml = IO.popen("plutil -convert xml1 #{safariplistfile} -o -")
-
-plist = CFPropertyList::List.new(:file => safariplistfile)
-data = CFPropertyList.native_types(plist.value)
-
-json = JSON.parse(File.open(chromejsonfile).read)
-
-bar = json["roots"]["bookmark_bar"]
-other = json["roots"]["other"]
-
-
-
-
-
-bc = BookmarkCollection.new
-bc.add_chrome json
-bc.add_safari data
-
-bc.render_plist.save(safariplistfile, CFPropertyList::List::FORMAT_BINARY)
+bc = BookmarkCollection.new([ChromeProvider.new, SafariProvider.new])
+bc.load
+bc.save
 
 #Dir.glob(safaricachepath + "*").each do |name|
 #  File.delete(name)

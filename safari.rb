@@ -1,24 +1,22 @@
 require 'cfpropertylist'
 
 module Safari
-  class Folder
-    @providers << SafariProvider
-  end
-
   class SafariProvider
-    def SafariProvider.load(filename='~/Library/Safari/Bookmarks.plist')
-      if filename.contains '~'
+    def load(filename='~/Library/Safari/Bookmarks.plist')
+      if filename.include? '~'
         filename.gsub!('~', ENV["HOME"])
       end
-      plist = CFPropertyList::List.new(:file => safariplistfile)
+      plist = CFPropertyList::List.new(:file => filename)
       data = CFPropertyList.native_types(plist.value)
-      hash["Children"].each_index do |i|
-        if hash["Children"][i]["Title"] == "BookmarksBar"
+      @other = data
+      index = 0
+      data["Children"].each_index do |i|
+        if data["Children"][i]["Title"] == "BookmarksBar"
           index = i
         end
       end
 
-      bookmarks_bar = SafariFolder.new_from_hash(hash["Children"][index])
+      bookmarks_bar = SafariFolder.new_from_hash(data["Children"][index])
       all = data["Children"].dup
       toremove = []
       all.each do |item|
@@ -29,7 +27,7 @@ module Safari
       end
       bookmarks = all - toremove
       toremove.delete_at(index)
-      #@extra = toremove
+      @extra = toremove
       toadd = []
       bookmarks.each do |bookmark|
         if bookmark["WebBookmarkType"] == "WebBookmarkTypeLeaf" 
@@ -43,37 +41,41 @@ module Safari
       return {"bar" => bookmarks_bar, "other" => other}
     end
 
-    def SafariProvider.save(collection, filename='~/Library/Safari/Bookmarks.plist')
-      if filename.contains '~'
+    def save(collection, filename='~/Library/Safari/Bookmarks.plist')
+      if filename.include? '~'
         filename.gsub!('~', ENV["HOME"])
       end
-      outline = {}
-      @outline["Children"] = []
-      @outline["Children"].push(@bookmarks_bar.safari_hash) #First, as per Safari's preference
+      outline = @other.dup
+      outline["Children"] = []
+      outline["Children"].push(folder_to_hash(collection.bookmarks_bar)) #First, as per Safari's preference
       @extra.each do |item| 
-        @outline["Children"].push item #Second, once again like Safari likes
+        outline["Children"].push item #Second, once again like Safari likes
       end
-      @other.children.each do |item|
-        @outline["Children"].push item.safari_hash #And finally everything else
+      collection.other.children.each do |item|
+        if item.respond_to?(:url)
+          outline["Children"].push(bookmark_to_hash(item))
+        else
+          outline["Children"].push(folder_to_hash(item))
+        end
       end
       plist = CFPropertyList::List.new
-      plist.value = CFPropertyList.guess(@outline) # data is native ruby structure
+      plist.value = CFPropertyList.guess(outline) # data is native ruby structure
       plist.save(filename, CFPropertyList::List::FORMAT_BINARY)
     end
 
     private
 
-    def folder_to_hash(hash)
+    def folder_to_hash(folder)
       ret = Hash.new
-      if hash["name"]=="bookmarks_bar"
-        hash["name"] = "BookmarksBar"
+      if folder.name =="bookmarks_bar"
+        folder.name = "BookmarksBar"
       end
-      ret["Title"] = hash["name"]
+      ret["Title"] = folder.name
       ret["WebBookmarkType"] = "WebBookmarkTypeList"
-      ret["WebBookmarkUUID"] = hash["uuid"] || Apple.new_uuid
+      ret["WebBookmarkUUID"] = folder.respond_to?(:uuid) ? folder.uuid : Apple.new_uuid
       children = Array.new
-      @children.each do |item|
-        if item.responds?(:url)
+      folder.children.each do |item|
+        if item.respond_to?(:url)
           children.push(bookmark_to_hash(item))
         else
           children.push(folder_to_hash(item))
@@ -85,7 +87,7 @@ module Safari
 
     def bookmark_to_hash(bookmark)
       return {"URIDictionary" => {"title" => bookmark.name},
-      "URLString" => bookmark.url, "WebBookmarkType" => "WebBookmarkTypeLeaf", "WebBookmakUUID" => bookmark.uuid || Apple.new_uuid}
+      "URLString" => bookmark.url, "WebBookmarkType" => "WebBookmarkTypeLeaf", "WebBookmakUUID" => bookmark.respond_to?(:uuid) ? bookmark.uuid : Apple.new_uuid}
     end
 
     def bookmark_to_cache_hash(bookmark)
@@ -93,7 +95,7 @@ module Safari
     end
   end
 
-  class SafariBookmark << Bookmark
+  class SafariBookmark < Bookmark
     attr_accessor :uuid
 
     def initialize(name, url, uuid)
@@ -106,7 +108,7 @@ module Safari
     end
   end
 
-  class SafariFolder << Folder
+  class SafariFolder < Folder
     attr_accessor :uuid
 
     def initialize(name, uuid)
@@ -127,5 +129,5 @@ module Safari
       end
       return folder
     end
-  end  
+  end
 end

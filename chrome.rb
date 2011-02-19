@@ -1,23 +1,19 @@
 require 'json'
 
 module Chrome
-  class Folder
-    @providers << ChromeProvider
-  end
-
   class ChromeProvider
-    def ChromeProvider.load(filename='~/Library/Application Support/Google/Chrome/Default/Bookmarks')
-      if filename.contains '~'
+    def load(filename='~/Library/Application Support/Google/Chrome/Default/Bookmarks')
+      if filename.include? '~'
         filename.gsub!('~', ENV["HOME"])
       end
-      json = JSON.parse(File.open(chromejsonfile).read)
+      json = JSON.parse(File.open(filename).read)
       bookmarks_bar = ChromeFolder.new_from_hash(json["roots"]["bookmark_bar"])
       other = ChromeFolder.new_from_hash(json["roots"]["other"])
       return {"bar" => bookmarks_bar, "other" => other}
     end
 
-    def ChromeProvider.save(collection, filename='~/Library/Application Support/Google/Chrome/Default/Bookmarks')
-      if filename.contains '~'
+    def save(collection, filename='~/Library/Application Support/Google/Chrome/Default/Bookmarks')
+      if filename.include? '~'
         filename.gsub!('~', ENV["HOME"])
       end
       ret = Hash.new
@@ -36,13 +32,13 @@ module Chrome
     def folder_to_hash(hash)
       ret = Hash.new
       ret["type"] = "folder"
-      ret["id"] = hash.id || rand(300)
+      ret["id"] = hash.respond_to?(:id) ? hash.id : rand(300)
       ret["name"] = hash.name
-      ret["date_added"] = hash.date_added || Time.now.ticks
-      ret["date_modified"] = hash.date_modified || Time.now.ticks
+      ret["date_added"] = hash.respond_to?(:date_added) ? hash.date_added : Time.now.ticks
+      ret["date_modified"] = hash.respond_to?(:date_added) ? hash.date_modified : Time.now.ticks
       children = Array.new
-      @children.each do |item|
-        if item.responds?(:url)
+      hash.children.each do |item|
+        if item.respond_to?(:url)
           children.push(bookmark_to_hash(item))
         else
           children.push(folder_to_hash(item))
@@ -53,11 +49,11 @@ module Chrome
     end
 
     def bookmark_to_hash(bookmark)
-      return { "type"=> "url", "id"=> bookmark.id || rand(300), "url"=> bookmark.url, "name" => bookmark.name, "date_added" => bookmark.date_added || Time.now.ticks }
+      return { "type"=> "url", "id"=> bookmark.respond_to?(:id) ? bookmark.id : rand(300), "url"=> bookmark.url, "name" => bookmark.name, "date_added" => bookmark.respond_to?(:date_added) ? bookmark.date_added : Time.now.ticks }
     end
   end
 
-  class ChromeBookmark << Bookmark
+  class ChromeBookmark < Bookmark
     attr_accessor :date_added, :id
 
     def initialize(name, url, id, date_added)
@@ -71,7 +67,7 @@ module Chrome
     end
   end
 
-  class ChromeFolder << Folder
+  class ChromeFolder < Folder
     attr_accessor :id, :date_added, :date_modified
 
     def initialize(name, id, date_added, date_modified)
@@ -94,5 +90,5 @@ module Chrome
       end
       return folder
     end
-  end  
+  end 
 end
